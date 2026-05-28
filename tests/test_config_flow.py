@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "custom_components"))
 
 from vbb_transport.config_flow import (  # noqa: E402
-    _LINE_PROBE_WINDOWS,
+    _LINE_PROBE_DURATION_MINUTES,
+    _LINE_PROBE_RESULTS,
     _extract_lines,
     _format_line_label,
     _format_station_label,
@@ -70,45 +71,27 @@ def _dep(line: str, direction: str) -> dict:
     return {"line": {"name": line, "product": "tram"}, "direction": direction}
 
 
-def test_probe_lines_stops_on_first_non_empty_window() -> None:
+def test_probe_lines_always_uses_48h_window() -> None:
     client = AsyncMock()
     client.get_departures.return_value = [_dep("M6", "S Hackescher Markt")]
 
     result = asyncio.run(_probe_lines(client, "900100003"))
 
-    assert len(result) == 1 and result[0]["name"] == "M6"
     assert client.get_departures.await_count == 1
     args, kwargs = client.get_departures.await_args
-    assert kwargs["duration"] == _LINE_PROBE_WINDOWS[0][0]  # first window only
+    assert kwargs["duration"] == _LINE_PROBE_DURATION_MINUTES == 2880
+    assert kwargs["results"] == _LINE_PROBE_RESULTS
+    assert result[0]["name"] == "M6"
 
 
-def test_probe_lines_escalates_to_48h_when_earlier_windows_empty() -> None:
-    client = AsyncMock()
-    # Return empty for the first three windows, then real data on the 48h one.
-    client.get_departures.side_effect = [
-        [],
-        [],
-        [],
-        [_dep("Nightbus N2", "Pankow")],
-    ]
-
-    result = asyncio.run(_probe_lines(client, "900100003"))
-
-    assert client.get_departures.await_count == len(_LINE_PROBE_WINDOWS) == 4
-    durations = [call.kwargs["duration"] for call in client.get_departures.await_args_list]
-    assert durations == [w[0] for w in _LINE_PROBE_WINDOWS]
-    assert durations[-1] == 2880  # 48h
-    assert result[0]["name"] == "Nightbus N2"
-
-
-def test_probe_lines_returns_empty_if_all_windows_empty() -> None:
+def test_probe_lines_returns_empty_when_no_departures() -> None:
     client = AsyncMock()
     client.get_departures.return_value = []
 
     result = asyncio.run(_probe_lines(client, "900100003"))
 
     assert result == []
-    assert client.get_departures.await_count == len(_LINE_PROBE_WINDOWS)
+    assert client.get_departures.await_count == 1
 
 
 def test_format_line_label_with_and_without_direction() -> None:

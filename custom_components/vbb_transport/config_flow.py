@@ -35,17 +35,11 @@ _LOGGER = logging.getLogger(__name__)
 
 _LINE_KEY_SEP = "||"
 
-# Escalating probe windows used when scanning a freshly picked station for
-# lines. Most stations resolve on the first window; the wider fallbacks let
-# infrequent stations (last bus already gone, weekend nights) still expose
-# their lines without forcing the user to retry during operating hours.
-# Each entry is (duration_minutes, max_results).
-_LINE_PROBE_WINDOWS: tuple[tuple[int, int], ...] = (
-    (120, 80),
-    (360, 120),
-    (1440, 200),
-    (2880, 200),
-)
+# Always probe a freshly picked station with a 48h window so quiet stations
+# (last bus already gone, weekend nights) still expose their lines without
+# the user having to come back during operating hours.
+_LINE_PROBE_DURATION_MINUTES = 2880  # 48h
+_LINE_PROBE_RESULTS = 200
 
 
 def _line_key(name: str, direction: str) -> str:
@@ -265,26 +259,13 @@ def _format_line_label(line: dict[str, str]) -> str:
 async def _probe_lines(
     client: TransportRestClient, stop_id: str
 ) -> list[dict[str, str]]:
-    """Probe departures in escalating windows up to 48h.
-
-    Each window is queried only if the previous returned no usable lines, so
-    busy stations still respond instantly while quiet ones still surface
-    something to pick from.
-    """
-    for duration, results in _LINE_PROBE_WINDOWS:
-        departures = await client.get_departures(
-            stop_id, duration=duration, results=results
-        )
-        lines = _extract_lines(departures)
-        if lines:
-            _LOGGER.debug(
-                "VBB line probe: %s lines found within %s min for stop %s",
-                len(lines),
-                duration,
-                stop_id,
-            )
-            return lines
-    return []
+    """Fetch a 48h slice of departures and return the unique lines at this stop."""
+    departures = await client.get_departures(
+        stop_id,
+        duration=_LINE_PROBE_DURATION_MINUTES,
+        results=_LINE_PROBE_RESULTS,
+    )
+    return _extract_lines(departures)
 
 
 def _extract_lines(departures: list[dict[str, Any]]) -> list[dict[str, str]]:
