@@ -28,7 +28,7 @@
       "cannot_connect": "Could not reach transport.rest. Try again in a moment.",
       "empty_query": "Please enter a search term.",
       "no_stops_found": "No stations matched your query.",
-      "no_lines_found": "No upcoming departures were found at this station, so no lines could be detected. Try again later.",
+      "no_lines_found": "No departures were found at this station even in the next 48 hours, so no lines could be detected. Try again later or pick a different station.",
       "station_not_found": "The chosen station is no longer in the search results — please search again."
     },
     "abort": {

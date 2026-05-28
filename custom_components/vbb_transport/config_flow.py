@@ -35,6 +35,18 @@ _LOGGER = logging.getLogger(__name__)
 
 _LINE_KEY_SEP = "||"
 
+# Escalating probe windows used when scanning a freshly picked station for
+# lines. Most stations resolve on the first window; the wider fallbacks let
+# infrequent stations (last bus already gone, weekend nights) still expose
+# their lines without forcing the user to retry during operating hours.
+# Each entry is (duration_minutes, max_results).
+_LINE_PROBE_WINDOWS: tuple[tuple[int, int], ...] = (
+    (120, 80),
+    (360, 120),
+    (1440, 200),
+    (2880, 200),
+)
+
 
 def _line_key(name: str, direction: str) -> str:
     return f"{name}{_LINE_KEY_SEP}{direction}"
@@ -115,14 +127,11 @@ class VbbConfigFlow(ConfigFlow, domain=DOMAIN):
                     async_get_clientsession(self.hass), self._base_url
                 )
                 try:
-                    departures = await client.get_departures(
-                        station_id, duration=120, results=80
-                    )
+                    self._available_lines = await _probe_lines(client, station_id)
                 except TransportRestError as err:
                     _LOGGER.warning("transport.rest departures probe failed: %s", err)
                     errors["base"] = "cannot_connect"
                 else:
-                    self._available_lines = _extract_lines(departures)
                     if not self._available_lines:
                         errors["base"] = "no_lines_found"
                     else:
@@ -251,6 +260,31 @@ def _format_line_label(line: dict[str, str]) -> str:
     if product:
         return f"{base}  ·  {product}"
     return base
+
+
+async def _probe_lines(
+    client: TransportRestClient, stop_id: str
+) -> list[dict[str, str]]:
+    """Probe departures in escalating windows up to 48h.
+
+    Each window is queried only if the previous returned no usable lines, so
+    busy stations still respond instantly while quiet ones still surface
+    something to pick from.
+    """
+    for duration, results in _LINE_PROBE_WINDOWS:
+        departures = await client.get_departures(
+            stop_id, duration=duration, results=results
+        )
+        lines = _extract_lines(departures)
+        if lines:
+            _LOGGER.debug(
+                "VBB line probe: %s lines found within %s min for stop %s",
+                len(lines),
+                duration,
+                stop_id,
+            )
+            return lines
+    return []
 
 
 def _extract_lines(departures: list[dict[str, Any]]) -> list[dict[str, str]]:
