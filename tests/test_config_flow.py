@@ -15,7 +15,9 @@ from vbb_transport.config_flow import (  # noqa: E402
     _extract_lines,
     _format_line_label,
     _format_station_label,
+    _keys_to_lines,
     _line_key,
+    _merge_available_with_configured,
     _parse_line_key,
     _probe_lines,
 )
@@ -92,6 +94,35 @@ def test_probe_lines_returns_empty_when_no_departures() -> None:
 
     assert result == []
     assert client.get_departures.await_count == 1
+
+
+def test_keys_to_lines_resolves_and_ignores_unknown() -> None:
+    available = [
+        {"name": "M6", "direction": "S Hackescher Markt", "product": "tram"},
+        {"name": "100", "direction": "Mitte", "product": "bus"},
+    ]
+    out = _keys_to_lines(
+        ["M6||S Hackescher Markt", "ghost||somewhere", "100||Mitte"], available
+    )
+    assert [(ln["name"], ln["direction"]) for ln in out] == [
+        ("M6", "S Hackescher Markt"),
+        ("100", "Mitte"),
+    ]
+
+
+def test_merge_available_preserves_configured_lines_not_in_probe() -> None:
+    available = [
+        {"name": "M6", "direction": "S Hackescher Markt", "product": "tram"},
+    ]
+    configured = [
+        {"name": "M6", "direction": "S Hackescher Markt", "product": "tram"},  # already present
+        {"name": "N42", "direction": "Sonderfahrt", "product": "bus"},  # not in 48h probe
+    ]
+    merged = _merge_available_with_configured(available, configured)
+    keys = [(ln["name"], ln.get("direction", "")) for ln in merged]
+    assert ("M6", "S Hackescher Markt") in keys
+    assert ("N42", "Sonderfahrt") in keys
+    assert len(merged) == 2  # no duplicate of M6
 
 
 def test_format_line_label_with_and_without_direction() -> None:

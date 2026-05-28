@@ -39,11 +39,16 @@
     "step": {
       "init": {
         "title": "VBB Transport options",
+        "description": "Add or remove lines for {station}, and tune how often departures are polled.",
         "data": {
+          "lines": "Lines",
           "scan_interval": "Polling interval (seconds)",
           "duration": "Departure look-ahead (minutes)"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Could not reach transport.rest. Existing lines stay configured; try again to refresh the available-lines list."
     }
   }
 }

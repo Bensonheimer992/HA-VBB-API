@@ -39,11 +39,16 @@
     "step": {
       "init": {
         "title": "VBB Transport Einstellungen",
+        "description": "Linien für {station} hinzufügen oder entfernen und das Abfrageverhalten einstellen.",
         "data": {
+          "lines": "Linien",
           "scan_interval": "Abfrageintervall (Sekunden)",
           "duration": "Vorschau-Fenster (Minuten)"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "transport.rest ist gerade nicht erreichbar. Bestehende Linien bleiben konfiguriert; erneut versuchen, um die Linienliste zu aktualisieren."
     }
   }
 }

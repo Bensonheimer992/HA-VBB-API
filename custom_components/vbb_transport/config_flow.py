@@ -157,21 +157,7 @@ class VbbConfigFlow(ConfigFlow, domain=DOMAIN):
         assert self._station is not None
 
         if user_input is not None:
-            selected_keys: list[str] = user_input.get(CONF_LINES) or []
-            lines: list[dict[str, str]] = []
-            for key in selected_keys:
-                name, direction = _parse_line_key(key)
-                match = next(
-                    (
-                        ln
-                        for ln in self._available_lines
-                        if ln["name"] == name and ln["direction"] == direction
-                    ),
-                    None,
-                )
-                if match is not None:
-                    lines.append(match)
-
+            lines = _keys_to_lines(user_input.get(CONF_LINES) or [], self._available_lines)
             return self.async_create_entry(
                 title=self._station["name"],
                 data={
@@ -213,17 +199,73 @@ class VbbConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class VbbOptionsFlow(OptionsFlow):
-    """Tune scan interval and how far ahead to look for departures."""
+    """Edit the line list (add/remove) plus scan interval and look-ahead window."""
+
+    def __init__(self) -> None:
+        self._available_lines: list[dict[str, str]] = []
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+        entry = self.config_entry
+        base_url = entry.data.get(CONF_BASE_URL) or DEFAULT_BASE_URL
+        station_id: str = entry.data[CONF_STATION_ID]
+        configured: list[dict[str, str]] = list(entry.data.get(CONF_LINES) or [])
 
-        options = self.config_entry.options
+        errors: dict[str, str] = {}
+
+        # Probe available lines once per options-flow session.
+        if not self._available_lines:
+            client = TransportRestClient(async_get_clientsession(self.hass), base_url)
+            try:
+                self._available_lines = await _probe_lines(client, station_id)
+            except TransportRestError as err:
+                _LOGGER.warning("VBB options-flow probe failed: %s", err)
+                errors["base"] = "cannot_connect"
+
+        # Keep any configured line that isn't currently in the probed result so
+        # rare/seasonal lines stay selectable instead of being silently dropped.
+        self._available_lines = _merge_available_with_configured(
+            self._available_lines, configured
+        )
+
+        if user_input is not None and not errors:
+            new_lines = _keys_to_lines(
+                user_input.get(CONF_LINES) or [], self._available_lines
+            )
+            if new_lines != configured:
+                self.hass.config_entries.async_update_entry(
+                    entry,
+                    data={**entry.data, CONF_LINES: new_lines},
+                )
+            return self.async_create_entry(
+                title="",
+                data={
+                    CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
+                    CONF_DURATION: user_input[CONF_DURATION],
+                },
+            )
+
+        line_options = [
+            selector.SelectOptionDict(
+                value=_line_key(ln["name"], ln.get("direction", "")),
+                label=_format_line_label(ln),
+            )
+            for ln in self._available_lines
+        ]
+        configured_keys = [
+            _line_key(ln["name"], ln.get("direction", "")) for ln in configured
+        ]
+        options = entry.options
         schema = vol.Schema(
             {
+                vol.Optional(CONF_LINES, default=configured_keys): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=line_options,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.LIST,
+                    )
+                ),
                 vol.Optional(
                     CONF_SCAN_INTERVAL,
                     default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_SECONDS),
@@ -234,7 +276,14 @@ class VbbOptionsFlow(OptionsFlow):
                 ): vol.All(vol.Coerce(int), vol.Range(min=5, max=240)),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "station": entry.data.get(CONF_STATION_NAME, station_id),
+            },
+        )
 
 
 def _format_station_label(stop: dict[str, Any]) -> str:
@@ -254,6 +303,46 @@ def _format_line_label(line: dict[str, str]) -> str:
     if product:
         return f"{base}  ·  {product}"
     return base
+
+
+def _keys_to_lines(
+    keys: list[str], available: list[dict[str, str]]
+) -> list[dict[str, str]]:
+    """Resolve a list of `name||direction` keys back to the matching available lines."""
+    out: list[dict[str, str]] = []
+    for key in keys:
+        name, direction = _parse_line_key(key)
+        match = next(
+            (
+                ln
+                for ln in available
+                if ln["name"] == name and ln.get("direction", "") == direction
+            ),
+            None,
+        )
+        if match is not None:
+            out.append(match)
+    return out
+
+
+def _merge_available_with_configured(
+    available: list[dict[str, str]], configured: list[dict[str, str]]
+) -> list[dict[str, str]]:
+    """Append any configured line that isn't already in `available`.
+
+    A line the user picked once may not show up in the next 48h (e.g. weekend-only,
+    holiday-only, special event lines). Keeping it in the selector lets the user
+    keep or remove it consciously instead of having it silently dropped.
+    """
+    result = list(available)
+    for cfg in configured:
+        cfg_dir = cfg.get("direction", "")
+        if not any(
+            ln["name"] == cfg["name"] and ln.get("direction", "") == cfg_dir
+            for ln in result
+        ):
+            result.append(cfg)
+    return result
 
 
 async def _probe_lines(
