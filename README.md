@@ -26,7 +26,7 @@ uv sync
 ### Via HACS (custom repository)
 
 1. HACS → Integrations → ⋮ → *Custom repositories*
-2. Add `https://github.com/<your-user>/transport-rest-homeassistant` as type *Integration*.
+2. Add `https://github.com/Bensonheimer992/HA-VBB-API` as type *Integration*.
 3. Install **VBB Transport (Berlin/Brandenburg)**, then restart Home Assistant.
 
 ### Manual
