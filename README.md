@@ -1,6 +1,12 @@
+<p align="center">
+  <img src="assets/vbb-logo.svg" alt="VBB logo" width="220">
+</p>
+
 # VBB Transport — Home Assistant integration
 
 A HACS-compatible custom integration that turns a [`transport.rest`](https://transport.rest/) v6 endpoint (default: `https://v6.vbb.transport.rest`) into Home Assistant sensors showing the **next actual departure time** (delay included) for every line you care about, at every station you care about.
+
+> The VBB logo is a trademark of Verkehrsverbund Berlin-Brandenburg GmbH. Source: [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:VBB-Logo.svg). It is included here for identification purposes only — this project is not affiliated with VBB.
 
 ## What you get
 
@@ -49,6 +55,27 @@ After setup, *Configure* on the integration entry lets you tune:
 
 - **Polling interval** (seconds, default 60 — be polite, the API has a 100 req/min limit)
 - **Departure look-ahead** (minutes, default 60)
+
+## Brand icon in HACS / Home Assistant
+
+This integration ships its own brand assets, served by Home Assistant's [Brand Proxy API](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/) (introduced 2026-02-24). No PR to `home-assistant/brands` required — HA reads them straight out of the integration:
+
+```
+custom_components/vbb_transport/brand/
+├── icon.png       256x256
+├── icon@2x.png    512x512
+├── logo.png       238x256
+└── logo@2x.png    477x512
+```
+
+HA serves them at `/api/brands/integration/vbb_transport/icon.png` (etc.), with stale-while-revalidate caching so the logo stays visible during internet outages. HACS picks them up on the integration card automatically.
+
+To re-render the PNGs from `assets/vbb-logo.svg` after editing the source SVG:
+
+```powershell
+uv sync --group brand-tools
+.venv\Scripts\python.exe scripts\render_brand_pngs.py
+```
 
 ## Notes & limitations
 
