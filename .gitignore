@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Lockfiles (keep uv.lock for reproducible installs — uncomment if you prefer not to)
+# uv.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Claude
+.claude

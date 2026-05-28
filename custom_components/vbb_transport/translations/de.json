@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Station suchen",
+        "description": "Gib (einen Teil) eines Stationsnamens im VBB-Gebiet ein. Die API-URL kann beim Standardwert bleiben.",
+        "data": {
+          "query": "Stationsname",
+          "base_url": "API-Basis-URL"
+        }
+      },
+      "station": {
+        "title": "Station auswählen",
+        "description": "Wähle eine der gefundenen Stationen aus.",
+        "data": {
+          "station_id": "Station"
+        }
+      },
+      "lines": {
+        "title": "Linien für {station} auswählen",
+        "description": "Für jede ausgewählte Linie + Richtung wird ein eigener Sensor angelegt, der die tatsächliche nächste Abfahrt (inkl. Verspätung) anzeigt.",
+        "data": {
+          "lines": "Linien"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "transport.rest ist gerade nicht erreichbar. Bitte später erneut versuchen.",
+      "empty_query": "Bitte einen Suchbegriff eingeben.",
+      "no_stops_found": "Keine Station passte zu der Suche.",
+      "no_lines_found": "An dieser Station wurden gerade keine Abfahrten gefunden, daher konnten keine Linien ermittelt werden. Bitte später erneut versuchen.",
+      "station_not_found": "Die gewählte Station ist nicht mehr in den Ergebnissen — bitte neu suchen."
+    },
+    "abort": {
+      "already_configured": "Diese Station ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "VBB Transport Einstellungen",
+        "data": {
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "duration": "Vorschau-Fenster (Minuten)"
+        }
+      }
+    }
+  }
+}

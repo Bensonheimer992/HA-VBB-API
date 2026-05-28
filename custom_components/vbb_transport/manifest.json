@@ -1,0 +1,13 @@
+{
+  "domain": "vbb_transport",
+  "name": "VBB Transport (Berlin/Brandenburg)",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/yourname/transport-rest-homeassistant",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/yourname/transport-rest-homeassistant/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

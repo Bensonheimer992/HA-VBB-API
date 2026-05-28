@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Search for a station",
+        "description": "Enter (part of) a station name in the VBB area. The API base URL can be left at the default.",
+        "data": {
+          "query": "Station name",
+          "base_url": "API base URL"
+        }
+      },
+      "station": {
+        "title": "Select the station",
+        "description": "Pick one of the matching stations.",
+        "data": {
+          "station_id": "Station"
+        }
+      },
+      "lines": {
+        "title": "Select lines for {station}",
+        "description": "Each selected line + direction will become its own sensor showing the next actual departure (delay included).",
+        "data": {
+          "lines": "Lines"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach transport.rest. Try again in a moment.",
+      "empty_query": "Please enter a search term.",
+      "no_stops_found": "No stations matched your query.",
+      "no_lines_found": "No upcoming departures were found at this station, so no lines could be detected. Try again later.",
+      "station_not_found": "The chosen station is no longer in the search results — please search again."
+    },
+    "abort": {
+      "already_configured": "This station is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "VBB Transport options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)",
+          "duration": "Departure look-ahead (minutes)"
+        }
+      }
+    }
+  }
+}
