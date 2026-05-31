@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/vbb-logo.svg" alt="VBB logo" width="220">
+  <img src="https://raw.githubusercontent.com/Bensonheimer992/HA-VBB-API/refs/heads/main/assets/vbb-logo.svg" alt="VBB logo" width="220">
 </p>
 
 # VBB Transport — Home Assistant integration
