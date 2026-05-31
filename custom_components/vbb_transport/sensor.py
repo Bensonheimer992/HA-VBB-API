@@ -9,6 +9,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
@@ -82,6 +83,10 @@ class VbbDepartureSensor(CoordinatorEntity[VbbDeparturesCoordinator], SensorEnti
         self._direction = direction
         self._product = product
         self._attr_device_info = device_info
+        # Last departure timestamp we reported; held instead of dropping to
+        # "unknown" when the board runs out of upcoming departures (released at
+        # local midnight — see native_value/_handle_midnight).
+        self._last_value: datetime | None = None
 
         slug_dir = _slug(direction) if direction else "any"
         self._attr_unique_id = f"{station_id}_{_slug(line_name)}_{slug_dir}"
@@ -117,7 +122,13 @@ class VbbDepartureSensor(CoordinatorEntity[VbbDeparturesCoordinator], SensorEnti
 
     @property
     def native_value(self) -> datetime | None:
-        """Return the next actual departure timestamp (delay-adjusted)."""
+        """Return the next actual departure timestamp (delay-adjusted).
+
+        When the board no longer lists an upcoming departure for this line
+        (e.g. the last service of the day has left) we keep reporting the last
+        known timestamp instead of dropping to "unknown", and only release it
+        once the local day has rolled over (midnight).
+        """
         now = dt_util.utcnow()
         for dep in self._matching_departures():
             if dep.get("cancelled"):
@@ -125,7 +136,16 @@ class VbbDepartureSensor(CoordinatorEntity[VbbDeparturesCoordinator], SensorEnti
             when = self._departure_when(dep)
             if when is None or when < now:
                 continue
+            self._last_value = when
             return when
+
+        # Nothing upcoming on the board right now. Hold the previous value
+        # until local midnight, then let it go to "unknown".
+        if self._last_value is not None:
+            if dt_util.as_local(now).date() > dt_util.as_local(self._last_value).date():
+                self._last_value = None
+            else:
+                return self._last_value
         return None
 
     @property
@@ -179,6 +199,25 @@ class VbbDepartureSensor(CoordinatorEntity[VbbDeparturesCoordinator], SensorEnti
 
     @callback
     def _handle_coordinator_update(self) -> None:
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Register a callback that fires at local midnight.
+
+        It re-evaluates the state so a value held overnight (because the board
+        ran dry) is released to "unknown" exactly at 00:00 local time, instead
+        of only on the next coordinator poll.
+        """
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_change(
+                self.hass, self._handle_midnight, hour=0, minute=0, second=0
+            )
+        )
+
+    @callback
+    def _handle_midnight(self, now: datetime) -> None:
+        """Force a state refresh at local midnight to drop any held value."""
         self.async_write_ha_state()
 
 

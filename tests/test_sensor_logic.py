@@ -103,6 +103,43 @@ def test_extra_state_attributes_includes_delay_and_next_three() -> None:
     assert attrs["next_departures"][0]["delay_seconds"] == 420
 
 
+def test_holds_last_value_when_board_runs_dry() -> None:
+    sensor = _make_sensor([_dep("M6", "S Hackescher Markt", _now_iso(5))])
+    held = sensor.native_value
+    assert held is not None, "expected an initial timestamp"
+
+    # The last service of the day has left: the board now only lists past
+    # departures. The sensor must keep the old value instead of going None.
+    sensor.coordinator.data = [_dep("M6", "S Hackescher Markt", _now_iso(-5))]
+    assert sensor.native_value == held
+
+
+def test_holds_last_value_when_board_is_empty() -> None:
+    sensor = _make_sensor([_dep("M6", "S Hackescher Markt", _now_iso(5))])
+    held = sensor.native_value
+    assert held is not None
+
+    # API returns no departures at all (empty list) — still hold the old value.
+    sensor.coordinator.data = []
+    assert sensor.native_value == held
+
+
+def test_releases_held_value_after_local_midnight() -> None:
+    sensor = _make_sensor([])
+    # A value that was last valid on the previous local day must be released.
+    yesterday = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=1)
+    sensor._last_value = yesterday
+    assert sensor.native_value is None
+    # And it is cleared, not just hidden.
+    assert sensor._last_value is None
+
+
+def test_no_held_value_means_unknown() -> None:
+    # A sensor that has never seen a departure reports None (unknown), not a hold.
+    sensor = _make_sensor([])
+    assert sensor.native_value is None
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

@@ -56,21 +56,31 @@ After setup, *Configure* on the integration entry lets you tune:
 - **Polling interval** (seconds, default 60 — be polite, the API has a 100 req/min limit)
 - **Departure look-ahead** (minutes, default 60)
 
-## Brand icon in HACS / Home Assistant
+## Brand icon — Home Assistant vs. the HACS store
 
-This integration ships its own brand assets, served by Home Assistant's [Brand Proxy API](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/) (introduced 2026-02-24). No PR to `home-assistant/brands` required — HA reads them straight out of the integration:
+A logo shows up in **two** different places, and they don't share a source:
+
+**1. Home Assistant's own *Devices & Services* page — works out of the box.**
+The integration ships its brand assets in `custom_components/vbb_transport/brand/`, served by HA's [Brand Proxy API](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/) (HA 2026.3+) at `/api/brands/integration/vbb_transport/icon.png`, with stale-while-revalidate caching so the logo survives internet outages.
 
 ```
 custom_components/vbb_transport/brand/
-├── icon.png       256x256
+├── icon.png       256x256   (slight padding, tuned for HA's UI)
 ├── icon@2x.png    512x512
 ├── logo.png       238x256
 └── logo@2x.png    477x512
 ```
 
-HA serves them at `/api/brands/integration/vbb_transport/icon.png` (etc.), with stale-while-revalidate caching so the logo stays visible during internet outages. HACS picks them up on the integration card automatically.
+**2. The HACS store / downloads panel — needs a one-time `home-assistant/brands` PR.**
+HACS does **not** read the local Brand Proxy yet (see hacs/integration [#5171](https://github.com/hacs/integration/issues/5171) and [#5223](https://github.com/hacs/integration/issues/5223)); its frontend still loads icons from `brands.home-assistant.io`. Until that ships, the HACS card shows an *"icon not available"* placeholder unless the brand is registered in that repo.
 
-To re-render the PNGs from `assets/vbb-logo.svg` after editing the source SVG:
+To register it, submit the staged set in `assets/brands/custom_integrations/vbb_transport/` (icons trimmed edge-to-edge, as brands requires) to [home-assistant/brands](https://github.com/home-assistant/brands):
+
+1. Fork `home-assistant/brands`.
+2. Copy `assets/brands/custom_integrations/vbb_transport/` into the fork at the **same path**.
+3. Open a PR. Once merged, `brands.home-assistant.io/_/vbb_transport/icon.png` serves the real logo and the HACS card picks it up.
+
+To re-render both sets from `assets/vbb-logo.svg` after editing the source SVG:
 
 ```powershell
 uv sync --group brand-tools
